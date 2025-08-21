@@ -34,9 +34,7 @@
                     <div>
                         <label for="branch_id" class="block text-sm font-medium text-gray-600 mb-1">Branch</label>
                         <select id="branch_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
-                            <option value="">-- Select a Branch --</option>
-                            <option value="1">Main Branch</option>
-                            <option value="2">Downtown Clinic</option>
+                            <option value="">-- Loading Branches --</option>
                         </select>
                     </div>
                     <div class="md:col-span-3">
@@ -95,7 +93,7 @@
             </section>
 
             <div class="flex justify-end items-center gap-4 pt-4 border-t">
-                <button type="button" class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100">Cancel</button>
+                <button type="button" onclick="window.location.href='index.html'" class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100">Cancel</button>
                 <button type="submit" name="status" value="Draft" class="bg-gray-700 text-white font-bold px-6 py-2 rounded-lg hover:bg-gray-800">Save as Draft</button>
                 <button type="submit" name="status" value="Approved" class="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-blue-700">Approve Issuance</button>
             </div>
@@ -109,10 +107,27 @@
         const lineItemsContainer = document.getElementById('line-items-container');
         const addItemBtn = document.getElementById('add-item-btn');
         const firstRow = lineItemsContainer.querySelector('.line-item-row');
+        const branchSelect = document.getElementById('branch_id');
 
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
+
+        async function loadBranches() {
+            try {
+                const response = await fetch('http://localhost:3000/api/branches');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const branches = await response.json();
+                branchSelect.innerHTML = '<option value="">-- Select a Branch --</option>';
+                branches.forEach(branch => {
+                    const option = new Option(branch.branch_name, branch.id);
+                    branchSelect.add(option);
+                });
+            } catch (error) {
+                console.error('Failed to load branches:', error);
+                branchSelect.innerHTML = '<option value="">Error loading branches</option>';
+            }
+        }
 
         const updateSummary = () => {
             const rows = lineItemsContainer.querySelectorAll('.line-item-row');
@@ -144,12 +159,10 @@
         });
 
         lineItemsContainer.addEventListener('input', updateSummary);
-        updateSummary();
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const status = event.submitter.value;
-
             const issueData = {
                 branch_id: document.getElementById('branch_id').value,
                 employee_id: document.getElementById('employee_id').value,
@@ -158,30 +171,25 @@
                 status: status,
                 items: []
             };
-
             const rows = lineItemsContainer.querySelectorAll('.line-item-row');
             rows.forEach(row => {
-                const item = {
+                issueData.items.push({
                     product_id: row.querySelector('[name="product_id"]').value,
                     uom: row.querySelector('[name="uom"]').value,
                     batch_no: row.querySelector('[name="batch_no"]').value,
                     expiry_date: row.querySelector('[name="expiry_date"]').value,
                     qty: row.querySelector('[name="qty"]').value
-                };
-                issueData.items.push(item);
+                });
             });
-
             try {
                 const response = await fetch('http://localhost:3000/api/issue', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(issueData),
                 });
-
                 const result = await response.json();
-
                 if (response.ok) {
-                    alert(`Success: ${result.message}`);
+                    alert(`Success: ${result.message} (Issue No: ${result.issueNo})`);
                     form.reset();
                     document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
                     updateSummary();
@@ -193,6 +201,9 @@
                 alert('Could not connect to the server. Please check the console for more details.');
             }
         });
+
+        loadBranches();
+        updateSummary();
     });
 </script>
 

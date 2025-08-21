@@ -1,4 +1,3 @@
-console.log("--- SERVER.JS FILE LOADED (VERSION: FINAL FIX) ---"); // Diagnostic
 // backend/server.js
 require('dotenv').config();
 const express = require('express');
@@ -63,9 +62,21 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// ---- Get All Branches ----
+app.get('/api/branches', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
+    try {
+        const sql = "SELECT id, branch_name FROM branches WHERE isActive = 1 ORDER BY branch_name";
+        const [branches] = await pool.query(sql);
+        res.json(branches);
+    } catch (err) {
+        console.error('Error fetching branches:', err);
+        res.status(500).json({ message: 'Failed to fetch branches.' });
+    }
+});
+
 // ---- Create Medical Supply Issuance ----
 app.post('/api/issue', async (req, res) => {
-    console.log("--- /API/ISSUE ROUTE HIT! ---");
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
 
     const { branch_id, employee_id, issue_date, remarks, status, items } = req.body;
