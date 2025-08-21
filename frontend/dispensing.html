@@ -60,7 +60,11 @@
                         </thead>
                         <tbody id="line-items-container">
                         <tr class="line-item-row">
-                            <td class="p-2" style="width: 40%;"><select name="product_id" required class="w-full p-2 border rounded-lg"><option value="">-- Select --</option><option value="101">Paracetamol 500mg</option><option value="102">Amoxicillin 250mg</option></select></td>
+                            <td class="p-2" style="width: 40%;">
+                                <select name="product_id" required class="product-select w-full p-2 border rounded-lg">
+                                    <option value="">-- Loading Products --</option>
+                                </select>
+                            </td>
                             <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="pc" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
@@ -106,26 +110,33 @@
         const form = document.getElementById('issuance-form');
         const lineItemsContainer = document.getElementById('line-items-container');
         const addItemBtn = document.getElementById('add-item-btn');
-        const firstRow = lineItemsContainer.querySelector('.line-item-row');
-        const branchSelect = document.getElementById('branch_id');
+        let productOptionsHtml = ''; // To store the loaded product options
 
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
 
-        async function loadBranches() {
+        async function loadSelectOptions(url, selectElement, defaultOptionText, isProduct) {
             try {
-                const response = await fetch('http://localhost:3000/api/branches');
-                if (!response.ok) throw new Error('Network response was not ok');
-                const branches = await response.json();
-                branchSelect.innerHTML = '<option value="">-- Select a Branch --</option>';
-                branches.forEach(branch => {
-                    const option = new Option(branch.branch_name, branch.id);
-                    branchSelect.add(option);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Network response was not ok for ${url}`);
+                const data = await response.json();
+
+                let optionsHtml = `<option value="">-- Select ${defaultOptionText} --</option>`;
+                data.forEach(item => {
+                    const id = isProduct ? item.product_id : item.id;
+                    const name = isProduct ? item.product_name : item.branch_name;
+                    optionsHtml += `<option value="${id}">${name}</option>`;
                 });
+
+                if(selectElement) selectElement.innerHTML = optionsHtml;
+                return optionsHtml;
+
             } catch (error) {
-                console.error('Failed to load branches:', error);
-                branchSelect.innerHTML = '<option value="">Error loading branches</option>';
+                console.error(`Failed to load ${defaultOptionText}:`, error);
+                const errorMessage = `<option value="">Error loading data</option>`;
+                if(selectElement) selectElement.innerHTML = errorMessage;
+                return errorMessage;
             }
         }
 
@@ -141,8 +152,11 @@
         };
 
         addItemBtn.addEventListener('click', () => {
+            const firstRow = lineItemsContainer.querySelector('.line-item-row');
             const newRow = firstRow.cloneNode(true);
-            newRow.querySelectorAll('input, select').forEach(input => input.value = '');
+            newRow.querySelectorAll('input').forEach(input => input.value = '');
+            const productSelect = newRow.querySelector('.product-select');
+            if (productSelect) productSelect.innerHTML = productOptionsHtml;
             lineItemsContainer.appendChild(newRow);
             updateSummary();
         });
@@ -192,6 +206,8 @@
                     alert(`Success: ${result.message} (Issue No: ${result.issueNo})`);
                     form.reset();
                     document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
+                    loadSelectOptions('http://localhost:3000/api/branches', document.getElementById('branch_id'), 'a Branch', false);
+                    document.querySelector('.product-select').innerHTML = productOptionsHtml;
                     updateSummary();
                 } else {
                     alert(`Error: ${result.message || 'An unknown error occurred.'}`);
@@ -202,8 +218,13 @@
             }
         });
 
-        loadBranches();
-        updateSummary();
+        async function initializePage() {
+            await loadSelectOptions('http://localhost:3000/api/branches', document.getElementById('branch_id'), 'a Branch', false);
+            productOptionsHtml = await loadSelectOptions('http://localhost:3000/api/products', document.querySelector('.product-select'), 'a Product', true);
+            updateSummary();
+        }
+
+        initializePage();
     });
 </script>
 

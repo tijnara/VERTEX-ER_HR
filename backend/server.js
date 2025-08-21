@@ -75,6 +75,19 @@ app.get('/api/branches', async (req, res) => {
     }
 });
 
+// ---- Get All Active Products ----
+app.get('/api/products', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
+    try {
+        const sql = "SELECT product_id, product_name FROM products WHERE isActive = 1 ORDER BY product_name";
+        const [products] = await pool.query(sql);
+        res.json(products);
+    } catch (err) {
+        console.error('Error fetching products:', err);
+        res.status(500).json({ message: 'Failed to fetch products.' });
+    }
+});
+
 // ---- Create Medical Supply Issuance ----
 app.post('/api/issue', async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
