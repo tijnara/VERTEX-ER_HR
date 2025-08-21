@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Medical Supply Issuance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+<div class="container mx-auto p-4 md:p-8">
+    <form id="issuance-form">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">New Medical Supply Issuance</h1>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 space-y-8">
+            <section>
+                <h2 class="text-lg font-semibold text-gray-700 border-b pb-3 mb-6">Issuance Details</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="issue_no" class="block text-sm font-medium text-gray-600 mb-1">Issue No</label>
+                        <input type="text" id="issue_no" value="AUTO-GENERATED" disabled class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg shadow-sm">
+                    </div>
+                    <div>
+                        <label for="issue_date" class="block text-sm font-medium text-gray-600 mb-1">Issue Date</label>
+                        <input type="datetime-local" id="issue_date" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                    </div>
+                    <div>
+                        <label for="branch_id" class="block text-sm font-medium text-gray-600 mb-1">Branch</label>
+                        <select id="branch_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                            <option value="">-- Select a Branch --</option>
+                            <option value="1">Main Branch</option>
+                            <option value="2">Downtown Clinic</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label for="employee_id" class="block text-sm font-medium text-gray-600 mb-1">Employee ID</label>
+                        <input type="number" id="employee_id" placeholder="Enter numeric employee ID..." required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-gray-700 border-b pb-3 mb-6">Items to Issue</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">UOM</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Batch No.</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Expiry Date</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody id="line-items-container">
+                        <tr class="line-item-row">
+                            <td class="p-2" style="width: 40%;"><select name="product_id" required class="w-full p-2 border rounded-lg"><option value="">-- Select --</option><option value="101">Paracetamol 500mg</option><option value="102">Amoxicillin 250mg</option></select></td>
+                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 10%;"><input type="number" name="qty" min="1" required class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2 text-center" style="width: 10%;"><button type="button" class="remove-item-btn text-red-500"><i class="fas fa-trash-alt fa-lg"></i></button></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" id="add-item-btn" class="mt-4 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">+ Add Item</button>
+            </section>
+
+            <section>
+                <details class="group">
+                    <summary class="flex justify-between items-center cursor-pointer list-none">
+                        <h2 class="text-lg font-semibold text-gray-700">Remarks & Summary</h2>
+                        <span class="text-gray-500 transition-transform duration-300 group-open:rotate-180"><i class="fas fa-chevron-down"></i></span>
+                    </summary>
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-6">
+                        <div>
+                            <label for="remarks" class="block text-sm font-medium text-gray-600 mb-1">Remarks</label>
+                            <textarea id="remarks" rows="4" placeholder="Add any relevant notes here..." class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm"></textarea>
+                        </div>
+                        <div class="space-y-4 bg-gray-50 p-4 rounded-lg">
+                            <p class="text-gray-600 flex justify-between">Total Unique Items: <span id="total-unique" class="font-bold text-lg">1</span></p>
+                            <p class="text-gray-600 flex justify-between">Total Quantity Issued: <span id="total-qty" class="font-bold text-lg">0</span></p>
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <div class="flex justify-end items-center gap-4 pt-4 border-t">
+                <button type="button" class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100">Cancel</button>
+                <button type="submit" name="status" value="Draft" class="bg-gray-700 text-white font-bold px-6 py-2 rounded-lg hover:bg-gray-800">Save as Draft</button>
+                <button type="submit" name="status" value="Approved" class="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-blue-700">Approve Issuance</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- Form and Element Setup ---
+        const form = document.getElementById('issuance-form');
+        const lineItemsContainer = document.getElementById('line-items-container');
+        const addItemBtn = document.getElementById('add-item-btn');
+        const firstRow = lineItemsContainer.querySelector('.line-item-row');
+
+        // --- Date and Time Setup ---
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
+
+        // --- Dynamic Row and Summary Logic ---
+        const updateSummary = () => {
+            const rows = lineItemsContainer.querySelectorAll('.line-item-row');
+            let totalQuantity = 0;
+            rows.forEach(row => {
+                const qtyInput = row.querySelector('input[name="qty"]');
+                totalQuantity += parseInt(qtyInput.value, 10) || 0;
+            });
+            document.getElementById('total-unique').textContent = rows.length;
+            document.getElementById('total-qty').textContent = totalQuantity;
+        };
+
+        addItemBtn.addEventListener('click', () => {
+            const newRow = firstRow.cloneNode(true);
+            newRow.querySelectorAll('input, select').forEach(input => input.value = '');
+            lineItemsContainer.appendChild(newRow);
+            updateSummary();
+        });
+
+        lineItemsContainer.addEventListener('click', e => {
+            if (e.target.closest('.remove-item-btn')) {
+                if (lineItemsContainer.children.length > 1) {
+                    e.target.closest('.line-item-row').remove();
+                    updateSummary();
+                } else {
+                    alert("You cannot remove the only item row.");
+                }
+            }
+        });
+
+        lineItemsContainer.addEventListener('input', updateSummary);
+        updateSummary();
+
+        // --- Form Submission Logic ---
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            // Determine which button was clicked ('Draft' or 'Approved')
+            const status = event.submitter.value;
+
+            // 1. Collect Header Data
+            const issueData = {
+                branch_id: document.getElementById('branch_id').value,
+                employee_id: document.getElementById('employee_id').value,
+                issue_date: document.getElementById('issue_date').value,
+                remarks: document.getElementById('remarks').value,
+                status: status,
+                items: []
+            };
+
+            // 2. Collect Line Item Data
+            const rows = lineItemsContainer.querySelectorAll('.line-item-row');
+            rows.forEach(row => {
+                const item = {
+                    product_id: row.querySelector('[name="product_id"]').value,
+                    uom: row.querySelector('[name="uom"]').value,
+                    batch_no: row.querySelector('[name="batch_no"]').value,
+                    expiry_date: row.querySelector('[name="expiry_date"]').value,
+                    qty: row.querySelector('[name="qty"]').value
+                };
+                issueData.items.push(item);
+            });
+
+            // 3. Send to Backend
+            try {
+                const response = await fetch('http://localhost:3000/api/issue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(issueData),
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`Success: ${result.message}`);
+                    form.reset(); // Clear the form
+                    updateSummary();
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Submission error:', error);
+                alert('Could not connect to the server. Please try again.');
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

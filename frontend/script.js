@@ -16,8 +16,7 @@ loginForm.addEventListener('submit', async (event) => {
         const result = await response.json();
 
         if (response.ok) {
-            alert(`Login successful! User ID: ${result.userId}`);
-            // window.location.href = '/dashboard.html';
+            window.location.href = 'dispensing.html';
         } else {
             alert(`Login failed: ${result.message}`);
         }
