@@ -63,7 +63,7 @@
                         <tbody id="line-items-container">
                         <tr class="line-item-row">
                             <td class="p-2" style="width: 40%;"><select name="product_id" required class="w-full p-2 border rounded-lg"><option value="">-- Select --</option><option value="101">Paracetamol 500mg</option><option value="102">Amoxicillin 250mg</option></select></td>
-                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="pc" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 10%;"><input type="number" name="qty" min="1" required class="w-full p-2 border rounded-lg"></td>
@@ -76,7 +76,7 @@
             </section>
 
             <section>
-                <details class="group">
+                <details class="group" open>
                     <summary class="flex justify-between items-center cursor-pointer list-none">
                         <h2 class="text-lg font-semibold text-gray-700">Remarks & Summary</h2>
                         <span class="text-gray-500 transition-transform duration-300 group-open:rotate-180"><i class="fas fa-chevron-down"></i></span>
@@ -105,18 +105,15 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // --- Form and Element Setup ---
         const form = document.getElementById('issuance-form');
         const lineItemsContainer = document.getElementById('line-items-container');
         const addItemBtn = document.getElementById('add-item-btn');
         const firstRow = lineItemsContainer.querySelector('.line-item-row');
 
-        // --- Date and Time Setup ---
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
 
-        // --- Dynamic Row and Summary Logic ---
         const updateSummary = () => {
             const rows = lineItemsContainer.querySelectorAll('.line-item-row');
             let totalQuantity = 0;
@@ -149,14 +146,10 @@
         lineItemsContainer.addEventListener('input', updateSummary);
         updateSummary();
 
-        // --- Form Submission Logic ---
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-
-            // Determine which button was clicked ('Draft' or 'Approved')
             const status = event.submitter.value;
 
-            // 1. Collect Header Data
             const issueData = {
                 branch_id: document.getElementById('branch_id').value,
                 employee_id: document.getElementById('employee_id').value,
@@ -166,7 +159,6 @@
                 items: []
             };
 
-            // 2. Collect Line Item Data
             const rows = lineItemsContainer.querySelectorAll('.line-item-row');
             rows.forEach(row => {
                 const item = {
@@ -179,7 +171,6 @@
                 issueData.items.push(item);
             });
 
-            // 3. Send to Backend
             try {
                 const response = await fetch('http://localhost:3000/api/issue', {
                     method: 'POST',
@@ -191,14 +182,15 @@
 
                 if (response.ok) {
                     alert(`Success: ${result.message}`);
-                    form.reset(); // Clear the form
+                    form.reset();
+                    document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
                     updateSummary();
                 } else {
-                    alert(`Error: ${result.message}`);
+                    alert(`Error: ${result.message || 'An unknown error occurred.'}`);
                 }
             } catch (error) {
                 console.error('Submission error:', error);
-                alert('Could not connect to the server. Please try again.');
+                alert('Could not connect to the server. Please check the console for more details.');
             }
         });
     });
