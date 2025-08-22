@@ -93,8 +93,12 @@ app.post('/api/issue', async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
 
     const { branch_id, employee_id, issue_date, remarks, status, items } = req.body;
+    const userId = Number(req.body.userId);
     if (!branch_id || !employee_id || !issue_date || !items || !items.length) {
         return res.status(400).json({ message: 'Missing required fields.' });
+    }
+    if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized: Missing user identity.' });
     }
 
     let connection;
@@ -106,13 +110,19 @@ app.post('/api/issue', async (req, res) => {
             INSERT INTO medical_supply_issue (issue_no, branch_id, employee_id, status, issue_date, remarks, created_by)
             VALUES ('TEMP', ?, ?, ?, ?, ?, ?);
         `;
-        const created_by = 1; // Placeholder for logged-in user ID
-        const [issueResult] = await connection.query(issueSql, [branch_id, employee_id, status, issue_date, remarks, created_by]);
+        const [issueResult] = await connection.query(issueSql, [branch_id, employee_id, status, issue_date, remarks, userId]);
         const issueId = issueResult.insertId;
 
         const newIssueNo = `ISS-${new Date().getFullYear()}-${String(issueId).padStart(6, '0')}`;
         const updateSql = `UPDATE medical_supply_issue SET issue_no = ? WHERE id = ?`;
         await connection.query(updateSql, [newIssueNo, issueId]);
+
+        // Set approval/cancellation metadata if applicable
+        if (String(status).toLowerCase() === 'approved') {
+            await connection.query(`UPDATE medical_supply_issue SET approved_by = ?, approved_at = NOW() WHERE id = ?`, [userId, issueId]);
+        } else if (String(status).toLowerCase() === 'cancelled') {
+            await connection.query(`UPDATE medical_supply_issue SET cancelled_by = ?, cancelled_at = NOW() WHERE id = ?`, [userId, issueId]);
+        }
 
         const lineSql = `
             INSERT INTO medical_supply_issue_line (issue_id, product_id, qty, uom, batch_no, expiry_date)
