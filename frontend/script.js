@@ -7,7 +7,7 @@ loginForm.addEventListener('submit', async (event) => {
     const password = document.getElementById('password').value;
 
     try {
-        const response = await fetch('http://localhost:3000/api/login', {
+        const response = await fetch('http://100.90.239.104:3000/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -16,7 +16,6 @@ loginForm.addEventListener('submit', async (event) => {
         const result = await response.json();
 
         if (response.ok) {
-            // Store the user ID from the successful login response
             localStorage.setItem('userId', result.userId);
             window.location.href = 'dispensing.html';
         } else {

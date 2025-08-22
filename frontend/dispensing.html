@@ -7,9 +7,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="vos.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .select2-container .select2-selection--single {
+            height: 42px;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 40px;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 40px;
+        }
     </style>
 </head>
 <body>
@@ -41,8 +53,10 @@
                         </select>
                     </div>
                     <div class="md:col-span-3">
-                        <label for="employee_id" class="block text-sm font-medium text-gray-600 mb-1">Employee ID</label>
-                        <input type="number" id="employee_id" placeholder="Enter numeric employee ID..." required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                        <label for="employee_id" class="block text-sm font-medium text-gray-600 mb-1">Employee</label>
+                        <select id="employee_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                            <option value="">-- Loading Employees --</option>
+                        </select>
                     </div>
                 </div>
             </section>
@@ -68,7 +82,7 @@
                                     <option value="">-- Loading Products --</option>
                                 </select>
                             </td>
-                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="250mg,..." class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="pc" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 10%;"><input type="number" name="qty" min="1" required class="w-full p-2 border rounded-lg"></td>
@@ -107,6 +121,9 @@
     </form>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('issuance-form');
@@ -114,7 +131,6 @@
         const addItemBtn = document.getElementById('add-item-btn');
         let productOptionsHtml = '';
 
-        // --- CORRECTED LOGIC: Get user ID and handle logout ---
         const loggedInUserId = localStorage.getItem('userId');
         if (!loggedInUserId) {
             alert('Your session has expired. Please log in again.');
@@ -129,13 +145,12 @@
                 window.location.href = 'index.html';
             });
         }
-        // --- END CORRECTED LOGIC ---
 
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
 
-        async function loadSelectOptions(url, selectElement, defaultOptionText, isProduct) {
+        async function loadSelectOptions(url, selectElement, defaultOptionText, valueKey, nameKey) {
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Network response was not ok for ${url}`);
@@ -143,9 +158,7 @@
 
                 let optionsHtml = `<option value="">-- Select ${defaultOptionText} --</option>`;
                 data.forEach(item => {
-                    const id = isProduct ? item.product_id : item.id;
-                    const name = isProduct ? item.product_name : item.branch_name;
-                    optionsHtml += `<option value="${id}">${name}</option>`;
+                    optionsHtml += `<option value="${item[valueKey]}">${item[nameKey]}</option>`;
                 });
 
                 if(selectElement) selectElement.innerHTML = optionsHtml;
@@ -196,19 +209,15 @@
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const status = event.submitter.value;
-
-            // --- CORRECTED LOGIC: Include the user ID in the submission ---
             const issueData = {
                 branch_id: document.getElementById('branch_id').value,
                 employee_id: document.getElementById('employee_id').value,
                 issue_date: document.getElementById('issue_date').value,
                 remarks: document.getElementById('remarks').value,
                 status: status,
-                userId: loggedInUserId, // Use the ID retrieved at page load
+                userId: loggedInUserId,
                 items: []
             };
-            // --- END CORRECTED LOGIC ---
-
             const rows = lineItemsContainer.querySelectorAll('.line-item-row');
             rows.forEach(row => {
                 issueData.items.push({
@@ -220,7 +229,7 @@
                 });
             });
             try {
-                const response = await fetch('http://localhost:3000/api/issue', {
+                const response = await fetch('http://100.90.239.104:3000/api/issue', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(issueData),
@@ -229,9 +238,10 @@
                 if (response.ok) {
                     alert(`Success: ${result.message} (Issue No: ${result.issueNo})`);
                     form.reset();
+                    $('#branch_id').val(null).trigger('change');
+                    $('#employee_id').val(null).trigger('change');
                     document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
-                    loadSelectOptions('http://localhost:3000/api/branches', document.getElementById('branch_id'), 'a Branch', false);
-                    document.querySelector('.product-select').innerHTML = productOptionsHtml;
+                    initializePage();
                     updateSummary();
                 } else {
                     alert(`Error: ${result.message || 'An unknown error occurred.'}`);
@@ -243,8 +253,13 @@
         });
 
         async function initializePage() {
-            await loadSelectOptions('http://localhost:3000/api/branches', document.getElementById('branch_id'), 'a Branch', false);
-            productOptionsHtml = await loadSelectOptions('http://localhost:3000/api/products', document.querySelector('.product-select'), 'a Product', true);
+            await loadSelectOptions('http://100.90.239.104:3000/api/branches', document.getElementById('branch_id'), 'a Branch', 'id', 'branch_name');
+            $('#branch_id').select2();
+
+            await loadSelectOptions('http://100.90.239.104:3000/api/users', document.getElementById('employee_id'), 'an Employee', 'user_id', 'full_name');
+            $('#employee_id').select2();
+
+            productOptionsHtml = await loadSelectOptions('http://100.90.239.104:3000/api/products', document.querySelector('.product-select'), 'a Product', 'product_id', 'product_name');
             updateSummary();
         }
 
