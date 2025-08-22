@@ -8,12 +8,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- VOS Theme -->
+    <link rel="stylesheet" href="vos.css">
     <style> body { font-family: 'Inter', sans-serif; } </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body>
 
+<header class="vos-header"><div class="vos-header-inner"><div class="vos-brand text-lg">VERTEX ERP</div></div></header>
 <div class="min-h-screen flex flex-col items-center justify-center p-4">
-    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 vos-card">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-900">Welcome Back</h1>
         </div>
@@ -31,7 +34,7 @@
             </div>
             <div>
                 <button type="submit"
-                        class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-300 transform hover:scale-105">
+                        class="w-full vos-btn-primary text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-105">
                     Sign In
                 </button>
             </div>
