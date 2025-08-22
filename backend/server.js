@@ -2,10 +2,15 @@
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
-const usersFromApi = require('./userData'); // Import the user data
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// The external API addresses
+const USER_API_URL = 'http://goatedcodoer:8080/api/users';
+const PRODUCT_API_URL = 'http://goatedcodoer:8080/api/products';
+const BRANCH_API_URL = 'http://goatedcodoer:8080/api/branches'; // New API for branches
 
 // ---- CORS Configuration ----
 const allowedOrigins = ['http://localhost:63342', 'http://localhost:63343'];
@@ -22,7 +27,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ---- MySQL Pool (still needed for other routes) ----
+// ---- MySQL Pool (only needed for creating new issues now) ----
 let pool;
 (async () => {
     try {
@@ -35,7 +40,7 @@ let pool;
             connectionLimit: 10,
             queueLimit: 0,
         });
-        console.log('Successfully connected to the database.');
+        console.log('Successfully connected to the database for issuance creation.');
     } catch (error) {
         console.error('FATAL: Database connection failed.', error);
     }
@@ -50,8 +55,10 @@ app.post('/api/login', async (req, res) => {
         const { email, password } = req.body || {};
         if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
 
-        const user = usersFromApi.find(u => u.email === email);
+        const apiResponse = await axios.get(USER_API_URL);
+        const users = apiResponse.data;
 
+        const user = users.find(u => u.email === email);
         if (!user) return res.status(401).json({ message: 'Invalid credentials.' });
 
         const ok = String(password) === String(user.password);
@@ -60,51 +67,70 @@ app.post('/api/login', async (req, res) => {
         return res.json({ message: 'Login successful', userId: user.userId });
     } catch (err) {
         console.error('Login error:', err);
-        return res.status(500).json({ message: 'Internal server error.' });
+        return res.status(500).json({ message: 'Could not connect to user service.' });
     }
 });
 
-// ---- Get All Branches (from DB) ----
+// ---- Get All Branches (from API) ----
 app.get('/api/branches', async (req, res) => {
-    if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
     try {
-        const sql = "SELECT id, branch_name FROM branches WHERE isActive = 1 ORDER BY branch_name";
-        const [branches] = await pool.query(sql);
-        res.json(branches);
+        const apiResponse = await axios.get(BRANCH_API_URL);
+        const branches = apiResponse.data;
+
+        const activeBranches = branches
+            .filter(branch => branch.isActive === 1)
+            .map(branch => ({
+                id: branch.id,
+                branch_name: branch.branchName
+            }))
+            .sort((a, b) => a.branch_name.localeCompare(b.branch_name));
+
+        res.json(activeBranches);
     } catch (err) {
         console.error('Error fetching branches:', err);
-        res.status(500).json({ message: 'Failed to fetch branches.' });
+        res.status(500).json({ message: 'Could not connect to branch service.' });
     }
 });
 
-// ---- Get All Active Products (from DB) ----
+// ---- Get All Active Products (from API) ----
 app.get('/api/products', async (req, res) => {
-    if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
     try {
-        const sql = "SELECT product_id, product_name FROM products WHERE isActive = 1 AND product_category = 285 ORDER BY product_name";
-        const [products] = await pool.query(sql);
-        res.json(products);
+        const apiResponse = await axios.get(PRODUCT_API_URL);
+        const products = apiResponse.data;
+
+        const activeProducts = products
+            .filter(product => product.isActive && product.categoryId === 285)
+            .map(product => ({
+                product_id: product.productId,
+                product_name: product.productName
+            }))
+            .sort((a, b) => a.product_name.localeCompare(b.product_name));
+
+        res.json(activeProducts);
     } catch (err) {
         console.error('Error fetching products:', err);
-        res.status(500).json({ message: 'Failed to fetch products.' });
+        res.status(500).json({ message: 'Could not connect to product service.' });
     }
 });
 
-// ---- Get All Active Users (from API data) ----
+// ---- Get All Active Users (from API) ----
 app.get('/api/users', async (req, res) => {
     try {
-        const activeUsers = usersFromApi
+        const apiResponse = await axios.get(USER_API_URL);
+        const users = apiResponse.data;
+
+        const activeUsers = users
             .filter(user => user.isActive)
             .map(user => ({
                 user_id: user.userId,
                 full_name: user.fullName
             }))
-            .sort((a, b) => a.full_name.localeCompare(b.full_name)); // Sort alphabetically
+            .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
         res.json(activeUsers);
     } catch (err) {
         console.error('Error fetching users:', err);
-        res.status(500).json({ message: 'Failed to fetch users.' });
+        res.status(500).json({ message: 'Could not connect to user service.' });
     }
 });
 
