@@ -1,6 +1,8 @@
+// WebStorm/backend/server.js
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
+const usersFromApi = require('./userData'); // Import the user data
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,7 +22,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ---- MySQL Pool ----
+// ---- MySQL Pool (still needed for other routes) ----
 let pool;
 (async () => {
     try {
@@ -42,26 +44,27 @@ let pool;
 // ---- Health check ----
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-// ---- DB-backed login ----
+// ---- API-backed login ----
 app.post('/api/login', async (req, res) => {
-    if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
     try {
         const { email, password } = req.body || {};
         if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
-        const sql = `SELECT user_id AS id, user_password AS pass FROM user WHERE user_email = ? LIMIT 1`;
-        const [rows] = await pool.query(sql, [email]);
-        if (!rows || rows.length === 0) return res.status(401).json({ message: 'Invalid credentials.' });
-        const user = rows[0];
-        const ok = String(password) === String(user.pass);
+
+        const user = usersFromApi.find(u => u.email === email);
+
+        if (!user) return res.status(401).json({ message: 'Invalid credentials.' });
+
+        const ok = String(password) === String(user.password);
         if (!ok) return res.status(401).json({ message: 'Invalid credentials.' });
-        return res.json({ message: 'Login successful', userId: user.id });
+
+        return res.json({ message: 'Login successful', userId: user.userId });
     } catch (err) {
         console.error('Login error:', err);
         return res.status(500).json({ message: 'Internal server error.' });
     }
 });
 
-// ---- Get All Branches ----
+// ---- Get All Branches (from DB) ----
 app.get('/api/branches', async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
     try {
@@ -74,7 +77,7 @@ app.get('/api/branches', async (req, res) => {
     }
 });
 
-// ---- Get All Active Products (Medicines Only) ----
+// ---- Get All Active Products (from DB) ----
 app.get('/api/products', async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
     try {
@@ -87,20 +90,25 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// ---- Get All Active Users (Employees) ----
+// ---- Get All Active Users (from API data) ----
 app.get('/api/users', async (req, res) => {
-    if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
     try {
-        const sql = "SELECT user_id, CONCAT(user_lname, ', ', user_fname, ' ', user_mname) AS full_name FROM user ORDER BY user_lname, user_fname";
-        const [users] = await pool.query(sql);
-        res.json(users);
+        const activeUsers = usersFromApi
+            .filter(user => user.isActive)
+            .map(user => ({
+                user_id: user.userId,
+                full_name: user.fullName
+            }))
+            .sort((a, b) => a.full_name.localeCompare(b.full_name)); // Sort alphabetically
+
+        res.json(activeUsers);
     } catch (err) {
         console.error('Error fetching users:', err);
         res.status(500).json({ message: 'Failed to fetch users.' });
     }
 });
 
-// ---- Create Medical Supply Issuance ----
+// ---- Create Medical Supply Issuance (to DB) ----
 app.post('/api/issue', async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
 
