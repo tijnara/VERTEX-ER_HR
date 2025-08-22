@@ -16,15 +16,8 @@ loginForm.addEventListener('submit', async (event) => {
         const result = await response.json();
 
         if (response.ok) {
-            try {
-                if (result && typeof result.userId !== 'undefined') {
-                    sessionStorage.setItem('userId', String(result.userId));
-                    // optional: mirror to localStorage for resilience
-                    localStorage.setItem('userId', String(result.userId));
-                }
-            } catch (e) {
-                console.warn('Could not persist userId:', e);
-            }
+            // Store the user ID from the successful login response
+            localStorage.setItem('userId', result.userId);
             window.location.href = 'dispensing.html';
         } else {
             alert(`Login failed: ${result.message}`);

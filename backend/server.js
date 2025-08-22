@@ -1,4 +1,4 @@
-// backend/server.js
+// WebStorm/backend/server.js
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
@@ -75,11 +75,12 @@ app.get('/api/branches', async (req, res) => {
     }
 });
 
-// ---- Get All Active Products ----
+// ---- Get All Active Products (Medicines Only) ----
 app.get('/api/products', async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
     try {
-        const sql = "SELECT product_id, product_name FROM products WHERE isActive = 1 ORDER BY product_name";
+        // --- CHANGE: Updated column name to product_category ---
+        const sql = "SELECT product_id, product_name FROM products WHERE isActive = 1 AND product_category = 285 ORDER BY product_name";
         const [products] = await pool.query(sql);
         res.json(products);
     } catch (err) {
@@ -92,13 +93,9 @@ app.get('/api/products', async (req, res) => {
 app.post('/api/issue', async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'Database connection has not been established.' });
 
-    const { branch_id, employee_id, issue_date, remarks, status, items } = req.body;
-    const userId = Number(req.body.userId);
-    if (!branch_id || !employee_id || !issue_date || !items || !items.length) {
-        return res.status(400).json({ message: 'Missing required fields.' });
-    }
-    if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized: Missing user identity.' });
+    const { branch_id, employee_id, issue_date, remarks, status, items, userId } = req.body;
+    if (!branch_id || !employee_id || !issue_date || !items || !items.length || !userId) {
+        return res.status(400).json({ message: 'Missing required fields, or user is not identified.' });
     }
 
     let connection;
@@ -117,11 +114,13 @@ app.post('/api/issue', async (req, res) => {
         const updateSql = `UPDATE medical_supply_issue SET issue_no = ? WHERE id = ?`;
         await connection.query(updateSql, [newIssueNo, issueId]);
 
-        // Set approval/cancellation metadata if applicable
-        if (String(status).toLowerCase() === 'approved') {
-            await connection.query(`UPDATE medical_supply_issue SET approved_by = ?, approved_at = NOW() WHERE id = ?`, [userId, issueId]);
-        } else if (String(status).toLowerCase() === 'cancelled') {
-            await connection.query(`UPDATE medical_supply_issue SET cancelled_by = ?, cancelled_at = NOW() WHERE id = ?`, [userId, issueId]);
+        if (status === 'Approved') {
+            const approvalSql = `
+                UPDATE medical_supply_issue
+                SET approved_by = ?, approved_at = NOW()
+                WHERE id = ?
+            `;
+            await connection.query(approvalSql, [userId, issueId]);
         }
 
         const lineSql = `

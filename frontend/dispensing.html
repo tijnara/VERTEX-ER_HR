@@ -68,7 +68,7 @@
                                     <option value="">-- Loading Products --</option>
                                 </select>
                             </td>
-                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="pc" class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="250mg,..." class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 10%;"><input type="number" name="qty" min="1" required class="w-full p-2 border rounded-lg"></td>
@@ -101,7 +101,6 @@
 
             <div class="flex justify-end items-center gap-4 pt-4 border-t">
                 <button type="button" onclick="window.location.href='index.html'" class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100">Cancel</button>
-
                 <button type="submit" name="status" value="Approved" class="vos-btn-primary text-white font-bold px-6 py-2 rounded-lg">Approve Issuance</button>
             </div>
         </div>
@@ -113,40 +112,24 @@
         const form = document.getElementById('issuance-form');
         const lineItemsContainer = document.getElementById('line-items-container');
         const addItemBtn = document.getElementById('add-item-btn');
-        let productOptionsHtml = ''; // To store the loaded product options
+        let productOptionsHtml = '';
 
-        // Get logged-in user ID
-        const currentUserId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
-        if (!currentUserId) {
+        // --- CORRECTED LOGIC: Get user ID and handle logout ---
+        const loggedInUserId = localStorage.getItem('userId');
+        if (!loggedInUserId) {
             alert('Your session has expired. Please log in again.');
             window.location.href = 'index.html';
             return;
         }
 
-        // Logout handling
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
-                try {
-                    // Clear any potential client-side auth/session data
-                    sessionStorage.clear();
-                    localStorage.clear();
-                    // Best-effort cookie clearing
-                    if (document.cookie && document.cookie !== '') {
-                        document.cookie.split(';').forEach(cookie => {
-                            const eqPos = cookie.indexOf('=');
-                            const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-                            document.cookie = name.trim() + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
-                        });
-                    }
-                } catch (e) {
-                    console.warn('Logout cleanup warning:', e);
-                } finally {
-                    // Redirect to login page
-                    window.location.href = 'index.html';
-                }
+                localStorage.removeItem('userId');
+                window.location.href = 'index.html';
             });
         }
+        // --- END CORRECTED LOGIC ---
 
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -213,15 +196,19 @@
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const status = event.submitter.value;
+
+            // --- CORRECTED LOGIC: Include the user ID in the submission ---
             const issueData = {
                 branch_id: document.getElementById('branch_id').value,
                 employee_id: document.getElementById('employee_id').value,
                 issue_date: document.getElementById('issue_date').value,
                 remarks: document.getElementById('remarks').value,
                 status: status,
-                userId: currentUserId,
+                userId: loggedInUserId, // Use the ID retrieved at page load
                 items: []
             };
+            // --- END CORRECTED LOGIC ---
+
             const rows = lineItemsContainer.querySelectorAll('.line-item-row');
             rows.forEach(row => {
                 issueData.items.push({
