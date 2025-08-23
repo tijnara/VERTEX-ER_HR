@@ -13,11 +13,6 @@ const USER_API_URL    = 'http://goatedcodoer:8080/api/users';
 const PRODUCT_API_URL = 'http://goatedcodoer:8080/api/products';
 const BRANCH_API_URL  = 'http://goatedcodoer:8080/api/branches';
 
-// If you later want to default new items into a specific category (e.g., "MEDICINES"),
-// set this to the correct categoryId on your external service.
-// For now we align with your sample (172 = GROCERY PRODUCTS) just to satisfy validation.
-const DEFAULT_CATEGORY_ID = 172;
-
 // ---- Parsers & Static ----
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
@@ -94,17 +89,17 @@ app.get('/api/users', async (_req, res) => {
 });
 
 //
-// -------- PRODUCTS (external only; no local DB) --------
+// -------- PRODUCTS (LOCAL DB only) --------
 //
 
-// Return ALL active products (no category filter) so new items are visible right away.
+// Return medicines (category 285) for dropdowns
 app.get('/api/products', async (_req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT product_id, product_name
-             FROM products
-             WHERE product_category = ?
-             ORDER BY product_name ASC`,
+       FROM products
+       WHERE product_category = ?
+       ORDER BY product_name ASC`,
             [285]
         );
         res.json(rows || []);
@@ -114,20 +109,72 @@ app.get('/api/products', async (_req, res) => {
     }
 });
 
-// Create product in local DB with required defaults for medical products
+// Helpers for auto-generated descriptions
+function cleanName(s) {
+    return String(s || '').replace(/\s+/g, ' ').trim();
+}
+function extractHints(name) {
+    const out = {};
+    const strength = name.match(/\b(\d+(?:\.\d+)?)(mg|ml|g|mcg)\b/i);
+    if (strength) out.strength = `${strength[1]}${strength[2].toUpperCase()}`;
+    const pack = name.match(/\b(\d+\s*[xX]\s*\d+\s*(?:tabs?|caps?|pcs?|vials?)?)\b/);
+    if (pack) out.pack = pack[1].replace(/\s+/g, '').toUpperCase();
+    return out;
+}
+function buildShortDesc(name) {
+    const UOM_TEXT = 'Pieces'; // unit_of_measurement = 18 → “Pieces”
+    const n = cleanName(name);
+    const { strength, pack } = extractHints(n);
+    let s = n;
+    if (strength) s += ` | ${strength}`;
+    if (pack) s += ` | ${pack}`;
+    s += ` | UOM: ${UOM_TEXT}`;
+    if (s.length > 64) s = s.slice(0, 61) + '…';
+    return s;
+}
+function buildLongDesc(name) {
+    const UOM_TEXT = 'Pieces';
+    const n = cleanName(name);
+    const { strength, pack } = extractHints(n);
+    const parts = [
+        `${n} is registered as a medical supply item for issuance and inventory control.`,
+        `Default unit of measurement: ${UOM_TEXT} (code 18).`
+    ];
+    if (strength) parts.push(`Labeled strength: ${strength}.`);
+    if (pack) parts.push(`Typical pack: ${pack}.`);
+    parts.push(`Category: Medicines (285). Auto-generated metadata is provided for search and listing convenience; edit as needed.`);
+    return parts.join(' ');
+}
+
+// Create product in local DB with required defaults + auto-generated descriptions
 app.post('/api/products', async (req, res) => {
     try {
         const { productName } = req.body || {};
         if (!productName || !String(productName).trim()) {
             return res.status(400).json({ message: 'productName is required.' });
         }
-        const name = String(productName).trim();
+
+        const name = cleanName(productName);
+        const short_description = buildShortDesc(name);
+        const description = buildLongDesc(name);
 
         const insertSql = `
-            INSERT INTO products (product_name, product_category, date_added, last_updated, unit_of_measurement)
-            VALUES (?, ?, NOW(), NOW(), ?)
-        `;
-        const [result] = await pool.query(insertSql, [name, 285, 18]);
+      INSERT INTO products (
+        product_name,
+        product_category,
+        date_added,
+        last_updated,
+        unit_of_measurement,
+        short_description,
+        description
+      )
+      VALUES (?, 285, NOW(), NOW(), 18, ?, ?)
+    `;
+        const [result] = await pool.query(insertSql, [
+            name,
+            short_description,
+            description
+        ]);
 
         const product = { product_id: result.insertId, product_name: name };
         return res.status(201).json({ message: 'Medicine created successfully.', product });

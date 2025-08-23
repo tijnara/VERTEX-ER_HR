@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="vos.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -36,7 +37,7 @@
                     </div>
                     <div>
                         <label for="issue_date" class="block text-sm font-medium text-gray-600 mb-1">Issue Date</label>
-                        <input type="datetime-local" id="issue_date" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
+                        <input type="text" id="issue_date" placeholder="YYYY-MM-DDTHH:mm" required class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm">
                     </div>
                     <div>
                         <label for="branch_id" class="block text-sm font-medium text-gray-600 mb-1">Branch</label>
@@ -75,10 +76,10 @@
                                 </select>
                             </td>
                             <td class="p-2" style="width: 12%;">
-                                <input type="text" name="uom" placeholder="e.g., pc / tab / vial" class="w-full p-2 border rounded-lg" />
+                                <input type="text" name="uom" placeholder="e.g. 250mg, etc" class="w-full p-2 border rounded-lg" />
                             </td>
                             <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
-                            <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 15%;"><input type="text" name="expiry_date" placeholder="YYYY-MM-DD" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 10%;"><input type="number" name="qty" min="1" required class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2 text-center" style="width: 8%;"><button type="button" class="remove-item-btn text-red-500"><i class="fas fa-trash-alt fa-lg"></i></button></td>
                         </tr>
@@ -121,6 +122,7 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -148,9 +150,38 @@
             });
         }
 
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
+        // Flatpickr initialization for date fields (compatible with WebView)
+        let issuePicker = null;
+        function initIssuePicker() {
+            const input = document.getElementById('issue_date');
+            try {
+                issuePicker = flatpickr(input, {
+                    enableTime: true,
+                    dateFormat: 'Y-m-d\\TH:i',
+                    defaultDate: new Date(),
+                    allowInput: true
+                });
+            } catch (e) {
+                // Fallback to manual value if Flatpickr unavailable
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                if (input) input.value = now.toISOString().slice(0, 16);
+            }
+        }
+        function initExpiryPicker(el) {
+            if (!el) return;
+            try {
+                flatpickr(el, {
+                    dateFormat: 'Y-m-d',
+                    allowInput: true
+                });
+            } catch (e) {
+                // no-op fallback
+            }
+        }
+        // Initialize pickers on load
+        initIssuePicker();
+        document.querySelectorAll('input[name="expiry_date"]').forEach(initExpiryPicker);
 
         async function loadSelectOptions(url, selectElement, defaultOptionText, valueKey, nameKey) {
             try {
@@ -189,6 +220,9 @@
             const productSelect = newRow.querySelector('.product-select');
             if (productSelect) productSelect.innerHTML = productOptionsHtml;
             lineItemsContainer.appendChild(newRow);
+            // initialize expiry date picker for the new row
+            const newExpiry = newRow.querySelector('input[name="expiry_date"]');
+            initExpiryPicker(newExpiry);
             updateSummary();
         });
 
@@ -242,20 +276,142 @@
         }
 
         const addMedicineBtn = document.getElementById('add-medicine-btn');
+        const newMedModal = document.getElementById('new-med-modal');
+        const newMedName = document.getElementById('new-med-name');
+        const newMedError = document.getElementById('new-med-error');
+        const newMedSave = document.getElementById('new-med-save');
+        const newMedCancel = document.getElementById('new-med-cancel');
+        const newMedX = document.getElementById('new-med-x');
+
+        function openNewMedModal() {
+            if (!newMedModal) return;
+            newMedError.classList.add('hidden');
+            newMedError.textContent = '';
+            newMedName.value = '';
+            newMedModal.classList.remove('hidden');
+            newMedModal.classList.add('flex');
+            setTimeout(() => newMedName.focus(), 0);
+        }
+        function closeNewMedModal() {
+            if (!newMedModal) return;
+            newMedModal.classList.add('hidden');
+            newMedModal.classList.remove('flex');
+        }
+        async function handleCreateNewMed() {
+            const name = (newMedName.value || '').trim();
+            if (!name) {
+                newMedError.textContent = 'Please enter a medicine name.';
+                newMedError.classList.remove('hidden');
+                newMedName.focus();
+                return;
+            }
+            try {
+                newMedSave.disabled = true;
+                newMedSave.textContent = 'Creating...';
+                const created = await createMedicine(name);
+                const productId = created?.product_id;
+                const firstRowSelect = document.querySelector('.line-item-row .product-select');
+                await reloadProductsAndSelect(firstRowSelect, productId);
+                closeNewMedModal();
+                alert(`Created: ${created?.product_name || name}`);
+            } catch (e) {
+                console.error(e);
+                newMedError.textContent = e.message || 'Failed to create medicine.';
+                newMedError.classList.remove('hidden');
+            } finally {
+                newMedSave.disabled = false;
+                newMedSave.textContent = 'Create';
+            }
+        }
+
         if (addMedicineBtn) {
-            addMedicineBtn.addEventListener('click', async () => {
-                const name = prompt('Enter medicine name:');
-                if (!name) return;
-                try {
-                    const created = await createMedicine(name.trim());
-                    const productId = created?.product_id;
-                    const firstRowSelect = document.querySelector('.line-item-row .product-select');
-                    await reloadProductsAndSelect(firstRowSelect, productId);
-                    alert(`Created: ${created?.product_name || name}`);
-                } catch (e) {
-                    console.error(e);
-                    alert(`Could not create medicine: ${e.message}`);
+            addMedicineBtn.addEventListener('click', openNewMedModal);
+        }
+        if (newMedCancel) newMedCancel.addEventListener('click', closeNewMedModal);
+        if (newMedX) newMedX.addEventListener('click', closeNewMedModal);
+        if (newMedModal) {
+            newMedModal.addEventListener('click', (e) => {
+                if (e.target === newMedModal) closeNewMedModal();
+            });
+        }
+        if (newMedSave) newMedSave.addEventListener('click', handleCreateNewMed);
+        if (newMedName) {
+            newMedName.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCreateNewMed();
                 }
+            });
+        }
+
+        // Success modal + reset helpers
+        const successModal = document.getElementById('success-modal');
+        const successMsgEl = document.getElementById('success-message');
+        const successOkBtn = document.getElementById('success-ok');
+        function openSuccessModal(message) {
+            if (!successModal) return;
+            if (successMsgEl) successMsgEl.textContent = message;
+            successModal.classList.remove('hidden');
+            successModal.classList.add('flex');
+        }
+        function closeSuccessModal() {
+            if (!successModal) return;
+            successModal.classList.add('hidden');
+            successModal.classList.remove('flex');
+        }
+        function resetFormFields() {
+            // reset simple inputs
+            form.reset();
+            // reset select2 selects
+            $('#branch_id').val(null).trigger('change');
+            $('#employee_id').val(null).trigger('change');
+            // reset issue date to now using flatpickr if available
+            const issueInput = document.getElementById('issue_date');
+            if (issuePicker && typeof issuePicker.setDate === 'function') {
+                issuePicker.setDate(new Date(), true);
+            } else if (issueInput) {
+                const now2 = new Date();
+                now2.setMinutes(now2.getMinutes() - now2.getTimezoneOffset());
+                issueInput.value = now2.toISOString().slice(0, 16);
+            }
+            // ensure line items back to a single blank row
+            const rows = lineItemsContainer.querySelectorAll('.line-item-row');
+            rows.forEach((row, idx) => {
+                if (idx === 0) {
+                    // clear inputs and handle expiry picker
+                    row.querySelectorAll('input').forEach(input => {
+                        if (input.name === 'expiry_date' && input._flatpickr) {
+                            input._flatpickr.clear();
+                        } else {
+                            input.value = '';
+                        }
+                    });
+                    const productSelect = row.querySelector('.product-select');
+                    if (productSelect) {
+                        productSelect.innerHTML = productOptionsHtml;
+                        productSelect.value = '';
+                    }
+                    const firstExpiry = row.querySelector('input[name="expiry_date"]');
+                    if (firstExpiry && !firstExpiry._flatpickr) {
+                        initExpiryPicker(firstExpiry);
+                    }
+                } else {
+                    row.remove();
+                }
+            });
+            // refresh product options for first row (non-blocking)
+            const firstRowSelect = document.querySelector('.line-item-row .product-select');
+            if (firstRowSelect) {
+                loadSelectOptions(`${apiBaseUrl}/products`, firstRowSelect, 'a Product', 'product_id', 'product_name').then(html => {
+                    productOptionsHtml = html;
+                });
+            }
+            updateSummary();
+        }
+        if (successOkBtn) successOkBtn.addEventListener('click', () => { closeSuccessModal(); resetFormFields(); });
+        if (successModal) {
+            successModal.addEventListener('click', (e) => {
+                if (e.target === successModal) { closeSuccessModal(); resetFormFields(); }
             });
         }
 
@@ -289,13 +445,7 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    alert(`Success: ${result.message} (Issue No: ${result.issueNo})`);
-                    form.reset();
-                    $('#branch_id').val(null).trigger('change');
-                    $('#employee_id').val(null).trigger('change');
-                    document.getElementById('issue_date').value = now.toISOString().slice(0, 16);
-                    initializePage();
-                    updateSummary();
+                    openSuccessModal(`Success: ${result.message} (Issue No: ${result.issueNo})`);
                 } else {
                     alert(`Error: ${result.message || 'An unknown error occurred.'}`);
                 }
@@ -320,5 +470,39 @@
         initializePage();
     });
 </script>
+<!-- Add New Medicine Modal -->
+<div id="new-med-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative">
+    <button id="new-med-x" type="button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600" aria-label="Close">
+      <i class="fas fa-times"></i>
+    </button>
+    <h3 class="text-xl font-semibold text-gray-800">Add New Medicine</h3>
+    <p class="mt-1 text-sm text-gray-500">Enter the medicine name. It will be added to your catalog.</p>
+
+    <div class="mt-5">
+      <label for="new-med-name" class="block text-sm font-medium text-gray-700">Medicine Name</label>
+      <input id="new-med-name" type="text" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., Amoxicillin 500mg capsule" />
+      <p id="new-med-error" class="mt-2 text-sm text-red-600 hidden"></p>
+    </div>
+
+    <div class="mt-6 flex justify-end gap-3">
+      <button id="new-med-cancel" type="button" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
+      <button id="new-med-save" type="button" class="vos-btn-primary text-white font-semibold px-5 py-2 rounded-lg">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Success Issuance Modal -->
+<div id="success-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 text-center">
+    <div class="text-green-600 mb-2"><i class="fas fa-check-circle fa-3x"></i></div>
+    <h3 class="text-xl font-semibold text-gray-800">Issuance Completed</h3>
+    <p id="success-message" class="mt-2 text-sm text-gray-600"></p>
+    <div class="mt-6">
+      <button id="success-ok" type="button" class="vos-btn-primary text-white font-semibold px-6 py-2 rounded-lg">OK</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
