@@ -100,108 +100,43 @@ app.get('/api/users', async (_req, res) => {
 // Return ALL active products (no category filter) so new items are visible right away.
 app.get('/api/products', async (_req, res) => {
     try {
-        const { data: products } = await axios.get(PRODUCT_API_URL, { timeout: 15000 });
-
-        const mapped = (products || [])
-            .filter(p => p.isActive === true)
-            .map(p => ({
-                product_id: p.productId,
-                product_name: p.productName,
-                unit: p.unit ?? null,
-                unit_count: p.unitCount ?? null,
-                barcode: p.barcode ?? null,
-                category_id: p.categoryId,
-                category_name: p.categoryName,
-                brand_id: p.brandId ?? null,
-                brand_name: p.brandName ?? null,
-                last_updated: p.lastUpdated ?? null,
-            }))
-            .sort((a, b) => a.product_name.localeCompare(b.product_name));
-
-        res.json(mapped);
+        const [rows] = await pool.query(
+            `SELECT product_id, product_name
+             FROM products
+             WHERE product_category = ?
+             ORDER BY product_name ASC`,
+            [285]
+        );
+        res.json(rows || []);
     } catch (err) {
-        console.error('Products GET error:', err?.message || err);
-        res.status(500).json({ message: 'Could not connect to product service.' });
+        console.error('Products GET error (local DB):', err?.message || err);
+        res.status(500).json({ message: 'Could not load products from database.' });
     }
 });
 
-// Create product by forwarding payload to external API (aligned to your sample structure)
+// Create product in local DB with required defaults for medical products
 app.post('/api/products', async (req, res) => {
     try {
-        const {
-            productName,
-            barcode = null,
-            shortDescription = '',
-            // Defaults mirrored from your sample objects:
-            parentId = 0,
-            unit = 'Pieces',
-            unitCount = 1,
-            priceA = 0,
-            priceB = 0,
-            priceC = 0,
-            priceD = 0,
-            priceE = 0,
-            isActive = true,
-            // IMPORTANT: Use the correct category for your target catalog.
-            // We keep the default at 172 so it passes validation like your samples.
-            categoryId = DEFAULT_CATEGORY_ID,
-            // Your samples use brandId=18 (CDO). Replace with a valid brand id in your system as needed.
-            brandId = 18,
-            suppliers = [],
-        } = req.body || {};
-
-        if (!productName) {
+        const { productName } = req.body || {};
+        if (!productName || !String(productName).trim()) {
             return res.status(400).json({ message: 'productName is required.' });
         }
+        const name = String(productName).trim();
 
-        const payload = {
-            productName,
-            parentId,
-            barcode,
-            shortDescription,
-            unit,
-            unitCount,
-            priceA, priceB, priceC, priceD, priceE,
-            isActive,
-            categoryId,
-            brandId,
-            suppliers,
-        };
+        const insertSql = `
+            INSERT INTO products (product_name, product_category, date_added, last_updated, unit_of_measurement)
+            VALUES (?, ?, NOW(), NOW(), ?)
+        `;
+        const [result] = await pool.query(insertSql, [name, 285, 18]);
 
-        // Log what we send for easy troubleshooting against the external API
-        console.log('[Products POST] outbound payload ->', payload);
-
-        const { data: created } = await axios.post(PRODUCT_API_URL, payload, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 15000,
-        });
-
-        const normalized = {
-            product_id: created.productId,
-            product_name: created.productName,
-            unit: created.unit ?? unit,
-            unit_count: created.unitCount ?? unitCount,
-            barcode: created.barcode ?? barcode,
-            category_id: created.categoryId ?? categoryId,
-            brand_id: created.brandId ?? brandId,
-            last_updated: created.lastUpdated ?? null,
-        };
-
-        return res.status(201).json({
-            message: 'Medicine created successfully.',
-            product: normalized,
-        });
+        const product = { product_id: result.insertId, product_name: name };
+        return res.status(201).json({ message: 'Medicine created successfully.', product });
     } catch (err) {
-        const status = err?.response?.status || 500;
-        const upstream = err?.response?.data ?? err?.message ?? String(err);
-
-        // Log the upstream error details from the external API
-        console.error('[Products POST] upstream error ->', upstream);
-
-        return res.status(status).json({
-            message: 'Failed to create medicine via external Product API.',
-            error: upstream,
-        });
+        console.error('Products POST error (local DB):', err?.message || err);
+        if (err && (err.code === 'ER_DUP_ENTRY' || String(err.message || '').toLowerCase().includes('duplicate'))) {
+            return res.status(409).json({ message: 'A medicine with the same name already exists.' });
+        }
+        return res.status(500).json({ message: 'Failed to create medicine in database.' });
     }
 });
 
