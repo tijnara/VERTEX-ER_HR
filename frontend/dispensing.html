@@ -69,17 +69,27 @@
                         </thead>
                         <tbody id="line-items-container">
                         <tr class="line-item-row">
-                            <td class="p-2" style="width: 40%;"><select name="product_id" required class="product-select w-full p-2 border rounded-lg"><option value="">-- Loading medicines.. --</option></select></td>
-                            <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="eg 250mg, etc" class="w-full p-2 border rounded-lg"></td>
+                            <td class="p-2" style="width: 40%;">
+                                <select name="product_id" required class="product-select w-full p-2 border rounded-lg">
+                                    <option value="">-- Loading medicines.. --</option>
+                                </select>
+                            </td>
+                            <td class="p-2" style="width: 12%;">
+                                <input type="text" name="uom" placeholder="e.g., pc / tab / vial" class="w-full p-2 border rounded-lg" />
+                            </td>
                             <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 10%;"><input type="number" name="qty" min="1" required class="w-full p-2 border rounded-lg"></td>
-                            <td class="p-2 text-center" style="width: 10%;"><button type="button" class="remove-item-btn text-red-500"><i class="fas fa-trash-alt fa-lg"></i></button></td>
+                            <td class="p-2 text-center" style="width: 8%;"><button type="button" class="remove-item-btn text-red-500"><i class="fas fa-trash-alt fa-lg"></i></button></td>
                         </tr>
                         </tbody>
                     </table>
                 </div>
-                <button type="button" id="add-item-btn" class="mt-4 vos-btn-accent text-white font-bold py-2 px-4 rounded-lg">+ Add Item</button>
+
+                <div class="flex gap-3 mt-4">
+                    <button type="button" id="add-item-btn" class="vos-btn-accent text-white font-bold py-2 px-4 rounded-lg">+ Add Item</button>
+                    <button type="button" id="add-medicine-btn" class="vos-btn-primary text-white font-bold py-2 px-4 rounded-lg">+ New Medicine</button>
+                </div>
             </section>
 
             <section>
@@ -119,7 +129,7 @@
         const addItemBtn = document.getElementById('add-item-btn');
         let productOptionsHtml = '';
 
-        // Dynamically create the API base URL.
+        // API base URL (same machine / LAN)
         const backendHost = window.location.hostname;
         const apiBaseUrl = `http://${backendHost}:3000/api`;
 
@@ -151,12 +161,12 @@
                 data.forEach(item => {
                     optionsHtml += `<option value="${item[valueKey]}">${item[nameKey]}</option>`;
                 });
-                if(selectElement) selectElement.innerHTML = optionsHtml;
+                if (selectElement) selectElement.innerHTML = optionsHtml;
                 return optionsHtml;
             } catch (error) {
                 console.error(`Failed to load ${defaultOptionText}:`, error);
                 const errorMessage = `<option value="">Error loading data</option>`;
-                if(selectElement) selectElement.innerHTML = errorMessage;
+                if (selectElement) selectElement.innerHTML = errorMessage;
                 return errorMessage;
             }
         }
@@ -195,9 +205,63 @@
 
         lineItemsContainer.addEventListener('input', updateSummary);
 
+        // --- New medicine creation ---
+        async function createMedicine(productName) {
+            const payload = { productName };
+            const response = await fetch(`${apiBaseUrl}/products`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result?.message || 'Failed to create medicine.');
+            return result?.product;
+        }
+
+        async function reloadProductsAndSelect(selectEl, productIdToSelect = null) {
+            productOptionsHtml = await loadSelectOptions(
+                `${apiBaseUrl}/products`,
+                selectEl,
+                'a Product',
+                'product_id',
+                'product_name'
+            );
+            if (selectEl && productIdToSelect) {
+                selectEl.value = String(productIdToSelect);
+            }
+            const allSelects = document.querySelectorAll('.product-select');
+            allSelects.forEach(sel => {
+                const currentValue = sel.value;
+                sel.innerHTML = productOptionsHtml;
+                if (productIdToSelect) {
+                    sel.value = String(productIdToSelect);
+                } else if (currentValue) {
+                    sel.value = currentValue;
+                }
+            });
+        }
+
+        const addMedicineBtn = document.getElementById('add-medicine-btn');
+        if (addMedicineBtn) {
+            addMedicineBtn.addEventListener('click', async () => {
+                const name = prompt('Enter medicine name:');
+                if (!name) return;
+                try {
+                    const created = await createMedicine(name.trim());
+                    const productId = created?.product_id;
+                    const firstRowSelect = document.querySelector('.line-item-row .product-select');
+                    await reloadProductsAndSelect(firstRowSelect, productId);
+                    alert(`Created: ${created?.product_name || name}`);
+                } catch (e) {
+                    console.error(e);
+                    alert(`Could not create medicine: ${e.message}`);
+                }
+            });
+        }
+
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-            const status = event.submitter.value;
+            const status = (event.submitter && event.submitter.value) || 'Approved';
             const issueData = {
                 branch_id: document.getElementById('branch_id').value,
                 employee_id: document.getElementById('employee_id').value,
@@ -252,6 +316,7 @@
             updateSummary();
         }
 
+        // Boot
         initializePage();
     });
 </script>
