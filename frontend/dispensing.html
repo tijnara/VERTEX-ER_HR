@@ -11,17 +11,9 @@
     <link rel="stylesheet" href="vos.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .select2-container .select2-selection--single {
-            height: 42px;
-            border-radius: 0.5rem;
-            border: 1px solid #d1d5db;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-            line-height: 40px;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__arrow {
-            height: 40px;
-        }
+        .select2-container .select2-selection--single { height: 42px; border-radius: 0.5rem; border: 1px solid #d1d5db; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 40px; }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
     </style>
 </head>
 <body>
@@ -77,11 +69,7 @@
                         </thead>
                         <tbody id="line-items-container">
                         <tr class="line-item-row">
-                            <td class="p-2" style="width: 40%;">
-                                <select name="product_id" required class="product-select w-full p-2 border rounded-lg">
-                                    <option value="">-- Loading Products --</option>
-                                </select>
-                            </td>
+                            <td class="p-2" style="width: 40%;"><select name="product_id" required class="product-select w-full p-2 border rounded-lg"><option value="">-- Loading Products --</option></select></td>
                             <td class="p-2" style="width: 10%;"><input type="text" name="uom" placeholder="pc" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="text" name="batch_no" class="w-full p-2 border rounded-lg"></td>
                             <td class="p-2" style="width: 15%;"><input type="date" name="expiry_date" class="w-full p-2 border rounded-lg"></td>
@@ -131,7 +119,9 @@
         const addItemBtn = document.getElementById('add-item-btn');
         let productOptionsHtml = '';
 
-        const apiBaseUrl = 'http://100.90.239.104:3000/api';
+        // Dynamically create the API base URL.
+        const backendHost = window.location.hostname;
+        const apiBaseUrl = `http://${backendHost}:3000/api`;
 
         const loggedInUserId = localStorage.getItem('userId');
         if (!loggedInUserId) {
@@ -157,15 +147,12 @@
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Network response was not ok for ${url}`);
                 const data = await response.json();
-
                 let optionsHtml = `<option value="">-- Select ${defaultOptionText} --</option>`;
                 data.forEach(item => {
                     optionsHtml += `<option value="${item[valueKey]}">${item[nameKey]}</option>`;
                 });
-
                 if(selectElement) selectElement.innerHTML = optionsHtml;
                 return optionsHtml;
-
             } catch (error) {
                 console.error(`Failed to load ${defaultOptionText}:`, error);
                 const errorMessage = `<option value="">Error loading data</option>`;
@@ -268,6 +255,5 @@
         initializePage();
     });
 </script>
-
 </body>
 </html>
