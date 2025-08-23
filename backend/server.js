@@ -100,7 +100,7 @@ app.get('/api/products', async (_req, res) => {
 
         res.json(activeProducts);
     } catch (err) {
-        console.error('Error fetching products:', err);
+        console.error('Error fetching medicines:', err);
         res.status(500).json({ message: 'Could not connect to product service.' });
     }
 });
