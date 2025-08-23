@@ -131,6 +131,8 @@
         const addItemBtn = document.getElementById('add-item-btn');
         let productOptionsHtml = '';
 
+        const apiBaseUrl = 'http://100.90.239.104:3000/api';
+
         const loggedInUserId = localStorage.getItem('userId');
         if (!loggedInUserId) {
             alert('Your session has expired. Please log in again.');
@@ -229,7 +231,7 @@
                 });
             });
             try {
-                const response = await fetch('http://100.90.239.104:3000/api/issue', {
+                const response = await fetch(`${apiBaseUrl}/issue`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(issueData),
@@ -253,13 +255,13 @@
         });
 
         async function initializePage() {
-            await loadSelectOptions('http://100.90.239.104:3000/api/branches', document.getElementById('branch_id'), 'a Branch', 'id', 'branch_name');
+            await loadSelectOptions(`${apiBaseUrl}/branches`, document.getElementById('branch_id'), 'a Branch', 'id', 'branch_name');
             $('#branch_id').select2();
 
-            await loadSelectOptions('http://100.90.239.104:3000/api/users', document.getElementById('employee_id'), 'an Employee', 'user_id', 'full_name');
+            await loadSelectOptions(`${apiBaseUrl}/users`, document.getElementById('employee_id'), 'an Employee', 'user_id', 'full_name');
             $('#employee_id').select2();
 
-            productOptionsHtml = await loadSelectOptions('http://100.90.239.104:3000/api/products', document.querySelector('.product-select'), 'a Product', 'product_id', 'product_name');
+            productOptionsHtml = await loadSelectOptions(`${apiBaseUrl}/products`, document.querySelector('.product-select'), 'a Product', 'product_id', 'product_name');
             updateSummary();
         }
 

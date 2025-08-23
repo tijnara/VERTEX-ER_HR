@@ -1,9 +1,5 @@
-// WebStorm/frontend/script.js
-
 const loginForm = document.querySelector('form');
 
-// --- Main Login Function ---
-// Encapsulates the logic to be reusable for both manual and auto-login.
 async function performLogin(email, password) {
     if (!email || !password) {
         alert('Email and password are required.');
@@ -31,8 +27,6 @@ async function performLogin(email, password) {
     }
 }
 
-// --- Manual Login ---
-// Keeps the original functionality for when you open the page in a normal browser.
 loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const email = document.getElementById('email').value;
@@ -40,8 +34,6 @@ loginForm.addEventListener('submit', async (event) => {
     performLogin(email, password);
 });
 
-// --- Auto-Login from JavaFX ---
-// Listens for the credentials injected by your Java application.
 function autoLogin(email, password) {
     console.log('[WebApp] Received credentials for auto-login.');
     document.getElementById('email').value = email;
@@ -49,7 +41,6 @@ function autoLogin(email, password) {
     performLogin(email, password);
 }
 
-// Another way to listen for the event, making it more robust.
 window.addEventListener('VOS_CREDENTIALS', (event) => {
     console.log('[WebApp] VOS_CREDENTIALS event received.');
     if (event.detail && event.detail.email && event.detail.password) {

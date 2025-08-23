@@ -1,4 +1,3 @@
-// WebStorm/backend/server.js
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
@@ -10,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 // The external API addresses
 const USER_API_URL = 'http://goatedcodoer:8080/api/users';
 const PRODUCT_API_URL = 'http://goatedcodoer:8080/api/products';
-const BRANCH_API_URL = 'http://goatedcodoer:8080/api/branches'; // New API for branches
+const BRANCH_API_URL = 'http://goatedcodoer:8080/api/branches';
 
 // ---- CORS Configuration ----
 const allowedOrigins = ['http://localhost:63342', 'http://localhost:63343'];
