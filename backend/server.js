@@ -1,9 +1,9 @@
 // WebStorm/backend/server.js
 require('dotenv').config();
-const express = require('express');
+const express = require('path');
+const pool = require('express');
 const axios = require('axios');
-const path = require('path');
-const pool = require('./db');
+const path = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,13 +18,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
 
-// ---- CORS (keep if you still open pages from WebStorm ports) ----
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://192.168.0.65:3000',
-    'http://localhost:63342',
-    'http://localhost:63343',
-];
+
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin && allowedOrigins.includes(origin)) {
