@@ -1,12 +1,22 @@
 // WebStorm/backend/server.js
 require('dotenv').config();
-const express = require('path');
-const pool = require('express');
+
+// ---- CORRECTED IMPORTS ----
+const express = require('express'); // FIX: 'express' module was assigned to 'pool'
+const path = require('path');       // FIX: 'path' module was not imported correctly
 const axios = require('axios');
-const path = require('./db');
+const pool = require('./db');       // FIX: The database pool from './db.js' was assigned to 'path'
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// FIX: Define the missing 'allowedOrigins' array for your CORS middleware
+const allowedOrigins = [
+    'http://localhost:3000',
+    `http://192.168.0.65:${PORT}`,
+    // Add any other origins for your frontend if necessary
+];
+
 
 // ---- External API addresses ----
 const USER_API_URL    = 'http://goatedcodoer:8080/api/users';
@@ -43,6 +53,9 @@ app.post('/api/login', async (req, res) => {
         const { data: users } = await axios.get(USER_API_URL, { timeout: 15000 });
         const user = (users || []).find(u => u.email === email);
         if (!user) return res.status(401).json({ message: 'Invalid credentials.' });
+
+        // ⚠️ SECURITY WARNING: Never compare plaintext passwords. This is unsafe.
+        // Passwords should be hashed using a library like bcrypt.
         if (String(password) !== String(user.password)) return res.status(401).json({ message: 'Invalid credentials.' });
 
         return res.json({ message: 'Login successful', userId: user.userId });
@@ -91,9 +104,9 @@ app.get('/api/products', async (_req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT product_id, product_name
-       FROM products
-       WHERE product_category = ?
-       ORDER BY product_name ASC`,
+             FROM products
+             WHERE product_category = ?
+             ORDER BY product_name ASC`,
             [285]
         );
         res.json(rows || []);
@@ -153,17 +166,17 @@ app.post('/api/products', async (req, res) => {
         const description = buildLongDesc(name);
 
         const insertSql = `
-      INSERT INTO products (
-        product_name,
-        product_category,
-        date_added,
-        last_updated,
-        unit_of_measurement,
-        short_description,
-        description
-      )
-      VALUES (?, 285, NOW(), NOW(), 18, ?, ?)
-    `;
+            INSERT INTO products (
+                product_name,
+                product_category,
+                date_added,
+                last_updated,
+                unit_of_measurement,
+                short_description,
+                description
+            )
+            VALUES (?, 285, NOW(), NOW(), 18, ?, ?)
+        `;
         const [result] = await pool.query(insertSql, [
             name,
             short_description,
