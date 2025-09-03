@@ -10,10 +10,11 @@ const pool = require('./db');       // FIX: The database pool from './db.js' was
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// FIX: Define the missing 'allowedOrigins' array for your CORS middleware
 const allowedOrigins = [
     'http://localhost:3000',
+    'http://localhost:63342', // <-- ADD THIS LINE
     `http://192.168.0.65:${PORT}`,
+    `http://192.168.68.55:${PORT}`,
     // Add any other origins for your frontend if necessary
 ];
 
@@ -248,5 +249,5 @@ app.post('/api/issue', async (req, res) => {
 // ---- Start server ----
 const HOST = '0.0.0.0';
 app.listen(PORT, HOST, () => {
-    console.log(`API + static files at http://${HOST}:${PORT} (open http://192.168.0.65:${PORT})`);
+    console.log(`API + static files at http://${HOST}:${PORT} (open http://192.168.68.55:${PORT})`);
 });
